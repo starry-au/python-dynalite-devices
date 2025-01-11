@@ -139,6 +139,7 @@ class Dynalite:
 
     def next_packet(self) -> Optional[DynetPacket]:
         """Get a valid packet from in_buffer."""
+
         packet = None
         while len(self._in_buffer) >= 8 and packet is None:
             first_byte = self._in_buffer[0]
@@ -155,8 +156,9 @@ class Dynalite:
                     self._in_buffer = self._in_buffer[8:]
                     continue
                 if first_byte == SyncType.DEVICE.value:
+                    hex_string = ":".join("{:02x}".format(c) for c in self._in_buffer[:8])
                     LOGGER.debug(
-                        "Not handling Dynet DEVICE message %s", self._in_buffer[:8]
+                        "Not handling Dynet DEVICE message %s", hex_string
                     )
                     self.broadcast(
                         DynetEvent(
@@ -165,6 +167,21 @@ class Dynalite:
                         )
                     )
                     self._in_buffer = self._in_buffer[8:]
+                    continue
+                if first_byte == SyncType.DYNET2.value:
+                    length = (self._in_buffer[1]+1) * 4
+                    if len(self._in_buffer) >= length:
+                        hex_string = ":".join("{:02x}".format(c) for c in self._in_buffer[:length])
+                        LOGGER.debug(
+                            "Not handling Dynet DYNET2 message %s", hex_string
+                        )
+                        self.broadcast(
+                            DynetEvent(
+                                event_type=EVENT_PACKET,
+                                data={EVENT_PACKET: self._in_buffer[:length]},
+                            )
+                        )
+                        self._in_buffer = self._in_buffer[length:]
                     continue
                 assert first_byte == SyncType.LOGICAL.value
                 try:
@@ -181,6 +198,7 @@ class Dynalite:
                 continue
             self.broadcast(
                 DynetEvent(
+                    #Assume DyNet 1 length packet
                     event_type=EVENT_PACKET, data={EVENT_PACKET: self._in_buffer[:8]}
                 )
             )

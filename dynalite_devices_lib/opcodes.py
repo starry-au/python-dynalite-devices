@@ -9,6 +9,7 @@ class SyncType(Enum):
     LOGICAL = 28  # 0x1c
     DEVICE = 92  # 0x5c
     DEBUG_MSG = 108  # 0x6c
+    DYNET2 = 172  # 0xAc
 
     @classmethod
     def has_value(cls, value: int) -> bool:
