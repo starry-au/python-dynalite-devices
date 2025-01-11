@@ -451,9 +451,9 @@ class DynaliteDevices:
         fade = self._area[area][CONF_CHANNEL][channel][CONF_FADE]
         self._dynalite.set_channel_level(area, channel, level, fade)
 
-    def select_preset(self, area: int, preset: int, fade: float) -> None:
+    def select_preset(self, area: int, preset: int, fade: float,channel=0) -> None:
         """Select a preset in an area."""
-        self._dynalite.select_preset(area, preset, fade)
+        self._dynalite.select_preset(area, preset, fade, channel)
 
     def request_area_preset(self, area: int, query_channel: Optional[int]) -> None:
         """Send a request to an area to report the preset."""

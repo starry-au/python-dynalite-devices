@@ -2,7 +2,6 @@
 
 from typing import TYPE_CHECKING
 
-from .const import ATTR_BRIGHTNESS
 from .const import ATTR_BRIGHTNESS, ACTIVE_ADVANCED
 from .dynalitebase import DynaliteChannelBaseDevice
 
@@ -20,6 +19,8 @@ class DynaliteChannelLightDevice(DynaliteChannelBaseDevice):
         self._level = 0.0
         self._direction = "stop"
         super().__init__(area, channel, bridge, hidden)
+        self.on_preset = bridge._on_preset
+        self.active = bridge._active
 
     @property
     def category(self) -> str:
@@ -67,8 +68,13 @@ class DynaliteChannelLightDevice(DynaliteChannelBaseDevice):
             brightness = kwargs[ATTR_BRIGHTNESS] / 255.0
         else:
             brightness = 1.0
+
         fade = self._bridge.get_channel_fade(self._area, self._channel)
-        self._bridge.set_channel_level(self._area, self._channel, brightness, fade)
+
+        if self.active == ACTIVE_ADVANCED and brightness == 1:
+                self._bridge.select_preset(self._area,self.on_preset, fade, self._channel)
+        else:
+            self._bridge.set_channel_level(self._area, self._channel, brightness, fade)
 
     async def async_turn_off(self, **kwargs) -> None:
         """Turn light off."""

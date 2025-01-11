@@ -111,16 +111,26 @@ class DynetPacket:
         )
 
     @staticmethod
-    def select_area_preset_packet(area: int, preset: int, fade: float) -> "DynetPacket":
-        """Create a packet to select a preset in an area."""
-        preset = preset - 1
-        bank = int((preset) / 8)
-        opcode = preset - (bank * 8)
-        if opcode > 3:
-            opcode = opcode + 6
-        fade_low = int(fade / 0.02) - (int((fade / 0.02) / 256) * 256)
-        fade_high = int((fade / 0.02) / 256)
-        return DynetPacket(area=area, command=opcode, data=[fade_low, fade_high, bank])
+    def select_area_preset_packet(area: int, preset: int, fade: float,channel=0) -> "DynetPacket":
+        if channel == 0:
+            """Create a packet to select a preset in an area."""
+            preset = preset - 1
+            bank = int((preset) / 8)
+            opcode = preset - (bank * 8)
+            if opcode > 3:
+                opcode = opcode + 6
+            fade_low = int(fade / 0.02) - (int((fade / 0.02) / 256) * 256)
+            fade_high = int((fade / 0.02) / 256)
+            return DynetPacket(area=area, command=opcode, data=[fade_low, fade_high, bank])
+        else:
+            """Create a packet to select preset for individual channel"""
+            opcode = OpcodeType.FADE_CHANNEL_AREA_TO_PRESET.value
+            fade_low = int(fade / 0.02) - (int((fade / 0.02) / 256) * 256)
+            fade_low = max(min(255, fade_low), 0)
+            preset = max(min(170, preset), 1)
+            return DynetPacket(area=area, command=opcode, data=[channel - 1, preset - 1, fade_low])
+
+
 
     @staticmethod
     def request_channel_level_packet(area: int, channel: int) -> "DynetPacket":
@@ -176,11 +186,16 @@ class DynetPacket:
         area: int, channel: int, preset: int, fade: float
     ) -> "DynetPacket":
         """Create a packet that reports the current preset in an area."""
+        if channel == 0:
+            channel = 255
+        else:
+            channel -= 1
         fade_time = int(fade / 0.02)
         if (fade_time) > 0xFF:
             fade_time = 0xFF
+
         return DynetPacket(
             area=area,
             command=OpcodeType.FADE_CHANNEL_AREA_TO_PRESET.value,
-            data=[channel - 1, preset - 1, fade_time],
+            data=[channel, preset - 1, fade_time],
         )

@@ -117,13 +117,14 @@ class Dynalite:
         }
         self.broadcast(DynetEvent(event_type=EVENT_CHANNEL, data=broadcast_data))
 
-    def select_preset(self, area: int, preset: int, fade: float) -> None:
+    def select_preset(self, area: int, preset: int, fade: float,channel=0) -> None:
         """Select a preset in an area."""
-        packet = DynetPacket.select_area_preset_packet(area, preset, fade)
+        packet = DynetPacket.select_area_preset_packet(area, preset, fade, channel)
         self.write(packet)
         broadcast_data = {
             CONF_AREA: area,
             CONF_PRESET: preset,
+            CONF_CHANNEL: channel,
         }
         self.broadcast(DynetEvent(event_type=EVENT_PRESET, data=broadcast_data))
 

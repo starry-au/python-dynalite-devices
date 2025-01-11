@@ -23,6 +23,8 @@ class DynaliteChannelSwitchDevice(DynaliteChannelBaseDevice):
         """Initialize the switch."""
         self._level = 0.0
         super().__init__(area, channel, bridge, hidden)
+        self.on_preset = bridge._on_preset
+        self.active = bridge._active
 
     @property
     def category(self) -> str:
@@ -40,10 +42,15 @@ class DynaliteChannelSwitchDevice(DynaliteChannelBaseDevice):
         self._level = actual_level
 
     async def async_turn_on(self, **kwargs) -> None:
+        CONF_ACTIVE = ACTIVE_ADVANCED
         """Turn switch on."""
         # pylint: disable=unused-argument
         fade = self._bridge.get_channel_fade(self._area, self._channel)
-        self._bridge.set_channel_level(self._area, self._channel, 1, fade)
+        if self.active == ACTIVE_ADVANCED:
+            self._bridge.select_preset(self._area,self.on_preset, fade, self._channel)
+        else:
+            self._bridge.set_channel_level(self._area, self._channel, 1, fade)
+
 
     async def async_turn_off(self, **kwargs) -> None:
         """Turn switch off."""
