@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING
 
 from .const import CONF_PRESET, CONF_ROOM, CONF_TEMPLATE
+from .const import ACTIVE_ADVANCED, CONF_ACTIVE,CONF_ON_PRESET,  CONF_PRESET, CONF_ROOM, CONF_TEMPLATE
 from .dynalitebase import (
     DynaliteBaseDevice,
     DynaliteChannelBaseDevice,

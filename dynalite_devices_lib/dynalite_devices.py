@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Union
 
 from .config import DynaliteConfig
 from .const import (
+    ACTIVE_ADVANCED,
     ACTIVE_INIT,
     ACTIVE_ON,
     CONF_ACT_LEVEL,

@@ -3,6 +3,7 @@
 from typing import Any, Dict, Union
 
 from .const import (
+    ACTIVE_ADVANCED,
     ACTIVE_INIT,
     ACTIVE_OFF,
     ACTIVE_ON,

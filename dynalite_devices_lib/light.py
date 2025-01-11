@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING
 
 from .const import ATTR_BRIGHTNESS
+from .const import ATTR_BRIGHTNESS, ACTIVE_ADVANCED
 from .dynalitebase import DynaliteChannelBaseDevice
 
 if TYPE_CHECKING:  # pragma: no cover
