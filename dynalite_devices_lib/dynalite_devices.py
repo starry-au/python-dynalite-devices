@@ -39,11 +39,13 @@ from .const import (
     CONF_TILT_TIME,
     CONF_TIME_COVER,
     CONF_TRGT_LEVEL,
+    CONF_VALID,
     DEFAULT_CHANNEL_TYPE,
     DEFAULT_COVER_CLASS,
     EVENT_CHANNEL,
     EVENT_CONNECTED,
     EVENT_DISCONNECTED,
+    EVENT_INVALIDATE,
     EVENT_PACKET,
     EVENT_PRESET,
     LOGGER,
@@ -140,7 +142,9 @@ class DynaliteDevices:
         self._port = configurator.port
         self.name = configurator.name
         self._auto_discover = configurator.auto_discover
+        #BS HACK in here TODO overide mode here for testing
         self._active = configurator.active
+        self._on_preset =  configurator.on_preset
         self._poll_timer = configurator.poll_timer
         self._default_fade = configurator.default_fade
         self._default_query_channel = configurator.default_query_channel
@@ -313,6 +317,9 @@ class DynaliteDevices:
         elif event.event_type == EVENT_CHANNEL:
             LOGGER.debug("Received CHANNEL message")
             self.handle_channel_change(event)
+        elif event.event_type == EVENT_INVALIDATE:
+            LOGGER.debug("Received EVENT_INVALIDATE message")
+            self.handle_preset_invalidate(event)
         else:
             assert event.event_type == EVENT_PACKET
             assert event.data
@@ -322,6 +329,7 @@ class DynaliteDevices:
                     NOTIFICATION_PACKET, {NOTIFICATION_PACKET: event.data[EVENT_PACKET]}
                 )
             )
+
 
     def ensure_area(self, area: int) -> None:
         """Configure a default area if it is not yet in config."""
@@ -367,19 +375,130 @@ class DynaliteDevices:
         LOGGER.debug("handle_preset_selection - event=%s", event.data)
         area = event.data[CONF_AREA]
         preset = event.data[CONF_PRESET]
-        self.create_preset_if_new(area, preset)
-        # Update all the preset devices
-        for cur_preset_in_area in self._added_presets[area]:
-            device = self._added_presets[area][cur_preset_in_area]
-            if cur_preset_in_area == preset:
-                device.set_level(1)
+        from_dynet = event.data.get(CONF_FROM_DYNET,False)
+
+        event_channel = event.data.get(CONF_CHANNEL, 0)
+        if event_channel == 0:
+            # preset to all Channels in the Area
+            self.create_preset_if_new(area, preset)
+            # Update all the preset devices
+            for cur_preset_in_area in self._added_presets[area]:
+                device = self._added_presets[area][cur_preset_in_area]
+                if cur_preset_in_area == preset:
+                    device.set_level(1)
+                else:
+                    device.set_level(0)
+                self.update_device(device,from_dynet)
+            # If active is set to full, query all channels in the area
+            if self._active == ACTIVE_ON:
+                for channel in self._area[area].get(CONF_CHANNEL, {}):
+                    self.request_channel_level(area, channel)
+            # If active is set to ADVANCED, Check if preset data is known if not then Query channels
+            elif self._active == ACTIVE_ADVANCED:
+                area_config = self._area[area]  # lookup the area object for the incoming area
+                area_channels = area_config.get(CONF_CHANNEL, {})
+                for channel in area_channels:
+                    channel_record = area_channels.get(channel, {})
+                    presets_record = channel_record.get(CONF_PRESET, {})
+                    preset_record = presets_record.get(preset, {})
+                    if preset_record.get(CONF_VALID,False):
+                        # if stored preset is vaild then use this level
+                        level = preset_record.get(CONF_LEVEL,-1)
+                        if level != -1:
+                            #update channel level.
+                            channel_to_set = self._added_channels[area][channel]
+                            channel_to_set.update_level(level, level)
+                            self.update_device(channel_to_set,from_dynet)
+                    else:
+                        self.request_channel_level(area, channel)
+        else:
+            # An individual Channel in the area
+            if self._active == ACTIVE_ADVANCED:
+                area_config = self._area[area]  # lookup the area object for the incoming area
+                area_channels = area_config.get(CONF_CHANNEL, {})
+                channel_record = area_channels.get(event_channel, {})
+                presets_record = channel_record.get(CONF_PRESET, {})
+                preset_record = presets_record.get(preset, {})
+                if preset_record.get(CONF_VALID,False):
+                    # if stored preset is vaild then use this level
+                    level = preset_record.get(CONF_LEVEL,-1)
+                    if level != -1:
+                        #update channel level.
+                        channel_to_set = self._added_channels[area][event_channel]
+                        channel_to_set.update_level(level, level)
+                        self.update_device(channel_to_set,from_dynet)
+                else:
+                    self.request_channel_level(area, event_channel)
+
+    def handle_preset_invalidate(self, event: DynetEvent) -> None:
+        """Invalidate the nominated preset."""
+         # if advanced mode is selected
+        if self._active == ACTIVE_ADVANCED:
+            LOGGER.debug("handle_preset_invalidate - event=%s", event.data)
+            area = event.data[CONF_AREA]
+            area_config = self._area[area]  # lookup the area object for the incoming area
+
+            preset = 0 #Unknown Preset
+            if CONF_PRESET in event.data.keys():
+                preset = event.data[CONF_PRESET]
             else:
-                device.set_level(0)
-            self.update_device(device)
-        # If active is set to full, query all channels in the area
-        if self._active == ACTIVE_ON:
-            for channel in self._area[area].get(CONF_CHANNEL, {}):
-                self.request_channel_level(area, channel)
+                # if the preset was not received then find the current preset for this area
+                preset = self.get_current_preset(area)
+
+            if preset == 0:
+                for nPreset in area_config.get(CONF_PRESET, {}):
+                    self.invalidate_preset(area, nPreset)
+            else:
+                # if the preset does not exist then create  a new one
+                self.create_preset_if_new(area, preset)
+                self.invalidate_preset(area, preset)
+
+    def invalidate_preset(self,area: int,preset: int) -> None:
+        # for each channel in the area Invalidate the stored Level
+        area_config = self._area[area]
+        area_channels = area_config.get(CONF_CHANNEL, {})
+        for channel in area_config.get(CONF_CHANNEL, {}):   # This iterates channel numbers
+            channel_record = area_channels.get(channel, {})
+            if CONF_PRESET not in channel_record.keys():
+                channel_record[CONF_PRESET] = {preset :{CONF_LEVEL: -1,CONF_VALID: False}}
+            else:
+                channel_record[CONF_PRESET] |= {preset :{CONF_LEVEL: -1,CONF_VALID: False}}
+    def get_current_preset(self, area: int) -> int:
+        """Find the current preset for the specified area."""
+        preset = 0 #if current preset can't be found then return 0
+        area_presets = self._added_presets[area]
+        for aPreset in area_presets:
+            preset_record = area_presets.get(aPreset, {})
+            if preset_record.is_on:
+                preset = aPreset
+                break
+        return preset
+
+    def update_preset(self,area,channel,preset,level) -> None:
+        """update the stored level for Preset"""
+        area_config = self._area[area]
+        if preset != 0:  #if the preset is unknown then abort operation
+            # if the preset does not exist then create  a new one
+            self.create_preset_if_new(area, preset)
+            area_config = self._area[area]
+            area_channels = area_config.get(CONF_CHANNEL, {})
+            if channel == 0:
+                # Update all channels
+                for channel in area_config.get(CONF_CHANNEL, {}):   # This iterates channel numbers
+                    channel_record = area_channels.get(channel, {})
+                    if CONF_PRESET not in channel_record.keys():
+                        channel_record[CONF_PRESET] = {preset :{CONF_LEVEL: level,CONF_VALID: True}}
+                    else:
+                        channel_record[CONF_PRESET] |= {preset :{CONF_LEVEL: level,CONF_VALID: True}}
+            else:
+                # Update a single channel
+                channel_record = area_channels.get(channel, {})
+                if CONF_PRESET not in channel_record.keys():
+                    channel_record[CONF_PRESET] = {preset :{CONF_LEVEL: level,CONF_VALID: True}}
+                else:
+                    channel_record[CONF_PRESET] |= {preset :{CONF_LEVEL: level,CONF_VALID: True}}
+
+
 
     def create_channel_if_new(self, area: int, channel: int) -> None:
         """Register a new channel."""
@@ -432,6 +551,9 @@ class DynaliteDevices:
             target_level = (255 - event.data[CONF_TRGT_LEVEL]) / 254
             channel_to_set = self._added_channels[area][channel]
             channel_to_set.update_level(actual_level, target_level)
+            if self._active == ACTIVE_ADVANCED:
+                preset = self.get_current_preset(area)
+                self.update_preset(area,channel,preset,target_level) # Update preset with target level, Make preset validated
             self.update_device(channel_to_set)
         elif action == CONF_ACTION_CMD:
             target_level = (255 - event.data[CONF_TRGT_LEVEL]) / 254

@@ -7,6 +7,7 @@ Class that handles inbound requests on the Dynet network and fires events.
 
 @ Notes:        Requires a RS485 to IP gateway (Do not use the Dynalite one - use something cheaper)
 """
+# TODO BS many of these handelers expect only 1 argument but when they are called 2 are supplied.
 
 from .const import (
     CONF_ACT_LEVEL,
@@ -22,6 +23,7 @@ from .const import (
     CONF_PRESET,
     CONF_TRGT_LEVEL,
     EVENT_CHANNEL,
+    EVENT_INVALIDATE,
     EVENT_PRESET,
 )
 from .dynet import DynetPacket
@@ -80,6 +82,20 @@ class DynetInbound:
     def preset_8(self, packet: DynetPacket) -> DynetEvent:
         """Handle preset 8 in banks of 8."""
         return self.preset(packet)
+
+    def program_out_current_preset(self, packet: DynetPacket) -> DynetEvent:
+        """Handle Program Current Preset"""
+        # TODO lookup the current preset index for this Area
+        return DynetEvent(
+            event_type=EVENT_INVALIDATE, data={CONF_AREA: packet.area},
+        )
+
+    def program_levels_preset(self, packet: DynetPacket) -> DynetEvent:
+        """Handle Program Specified Preset"""
+        preset = packet.data[0] + 1
+        return DynetEvent(
+            event_type=EVENT_INVALIDATE, data={CONF_AREA: packet.area, CONF_PRESET: preset, CONF_FROM_DYNET: True},
+        )
 
     @staticmethod
     def report_preset(packet: DynetPacket) -> DynetEvent:

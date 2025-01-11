@@ -96,6 +96,19 @@ class DynetPacket:
         return json.dumps(self.__dict__)
 
     @staticmethod
+    def set_area_level_packet(
+        area: int, level: float, fade: float
+    ) -> "DynetPacket":
+        """Create a packet to set level of a whole area."""
+        target_level = int(255 - 254 * level)
+        opcode = OpcodeType.START_FADING_ALL.value
+        fade_low = int(fade / 0.02) - (int((fade / 0.02) / 256) * 256)
+        fade_high = int((fade / 0.02) / 256)
+        return DynetPacket(
+            area=area, command=opcode, data=[target_level, fade_low, fade_high]
+        )
+
+    @staticmethod
     def set_channel_level_packet(
         area: int, channel: int, level: float, fade: float
     ) -> "DynetPacket":
@@ -175,10 +188,16 @@ class DynetPacket:
         )
 
     @staticmethod
-    def report_area_preset_packet(area: int, preset: int) -> "DynetPacket":
+    def report_area_preset_packet(area: int, preset: int,channel=0) -> "DynetPacket":
         """Create a packet that reports the current preset in an area."""
+        # in this command the channel number is 0 based with 0xff for all channels
+        if channel == 0:
+            channel = 255
+        else:
+            channel -= 1
+
         return DynetPacket(
-            area=area, command=OpcodeType.REPORT_PRESET.value, data=[preset - 1, 0, 0]
+            area=area, command=OpcodeType.REPORT_PRESET.value, data=[preset - 1, channel, 0]
         )
 
     @staticmethod

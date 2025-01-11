@@ -107,15 +107,20 @@ class Dynalite:
         self, area: int, channel: int, level: float, fade: float
     ) -> None:
         """Set the level of a channel."""
-        packet = DynetPacket.set_channel_level_packet(area, channel, level, fade)
-        self.write(packet)
-        broadcast_data = {
-            CONF_AREA: area,
-            CONF_CHANNEL: channel,
-            CONF_TRGT_LEVEL: int(255 - 254.0 * level),
-            CONF_ACTION: CONF_ACTION_CMD,
-        }
-        self.broadcast(DynetEvent(event_type=EVENT_CHANNEL, data=broadcast_data))
+        if channel == 0:   #defer to area level command
+           packet = DynetPacket.set_area_level_packet(area,level,fade)
+           self.write(packet)
+           # TODO BS Broadcast Cahnnel update? Channel 0 seems to be a problem?
+        else:
+            packet = DynetPacket.set_channel_level_packet(area, channel, level, fade)
+            self.write(packet)
+            broadcast_data = {
+                CONF_AREA: area,
+                CONF_CHANNEL: channel,
+                CONF_TRGT_LEVEL: int(255 - 254.0 * level),
+                CONF_ACTION: CONF_ACTION_CMD,
+            }
+            self.broadcast(DynetEvent(event_type=EVENT_CHANNEL, data=broadcast_data))
 
     def select_preset(self, area: int, preset: int, fade: float,channel=0) -> None:
         """Select a preset in an area."""

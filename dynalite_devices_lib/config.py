@@ -24,6 +24,7 @@ from .const import (
     CONF_LEVEL,
     CONF_NAME,
     CONF_NO_DEFAULT,
+    CONF_ON_PRESET,
     CONF_OPEN_PRESET,
     CONF_POLL_TIMER,
     CONF_PORT,
@@ -37,8 +38,10 @@ from .const import (
     CONF_TILT_TIME,
     CONF_TIME_COVER,
     CONF_TRIGGER,
+    CONF_VALID,
     DEFAULT_CHANNEL_TYPE,
     DEFAULT_NAME,
+    DEFAULT_ON_PRESET,
     DEFAULT_PORT,
     DEFAULT_PRESETS,
     DEFAULT_QUERY_CHANNEL,
@@ -64,7 +67,9 @@ class DynaliteConfig:
         self.port = config.get(CONF_PORT, DEFAULT_PORT)
         self.name = config.get(CONF_NAME, f"{DEFAULT_NAME}-{self.host}")
         self.auto_discover = config.get(CONF_AUTO_DISCOVER, False)
-        temp_active = config.get(CONF_ACTIVE, ACTIVE_INIT)
+        #BS HACK overide active mode for testing
+        temp_active = ACTIVE_ADVANCED
+        #temp_active = config.get(CONF_ACTIVE, ACTIVE_INIT)
         if temp_active is True:
             self.active = ACTIVE_ON
         elif temp_active is False:
@@ -76,6 +81,7 @@ class DynaliteConfig:
         self.default_query_channel = int(
             config.get(CONF_DEFAULT, {}).get(CONF_QUERY_CHANNEL, DEFAULT_QUERY_CHANNEL)
         )
+        self.on_preset = config.get(CONF_ON_PRESET, DEFAULT_ON_PRESET)
         # create the templates
         config_templates = config.get(CONF_TEMPLATE, {})
         templates: Dict[str, Dict[str, Union[str, int]]] = {}
