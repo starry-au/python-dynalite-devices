@@ -23,6 +23,7 @@ from .const import (
     CONF_DEVICE_CLASS,
     CONF_DURATION,
     CONF_FADE,
+    CONF_FROM_DYNET,
     CONF_HIDDEN_ENTITY,
     CONF_LEVEL,
     CONF_NAME,
@@ -236,11 +237,50 @@ class DynaliteDevices:
         assert conf == CONF_TEMPLATE
         return self._area.get(area, {}).get(CONF_TEMPLATE, "") == item_num
 
-    def update_device(self, device: Optional[DynaliteBaseDevice] = None) -> None:
+    def update_device(self, device: Optional[DynaliteBaseDevice] = None, from_dynet = False) -> None:
         """Update one or more devices."""
         if device and device.hidden:
             return
+        if not from_dynet:
+            # if the update was triggered from a HA event
+            self.update_DyNet_ui(device)
         self._update_device_func(device)
+
+    def update_DyNet_ui(self, device: Optional[DynaliteBaseDevice] = None) -> None:
+        """evaluate the area if every channel is 0% then let the DyNet switch know everything is off"""
+        #TODO supress this behaviour if the update was triggered by a DyNet Network Source.
+        if self._active == ACTIVE_ADVANCED:
+            if device and device.category == 'light':
+                area = device._area
+                channels = device._bridge._added_channels[area]
+                if len(channels) > 1: #If there is more than 1 channel in the area
+                    # determine the current collective state of the area
+                    area_on_state = False
+                    for channel in channels:
+                        channel_record = channels.get(channel, {})
+                        if channel_record.is_on:
+                            area_on_state = True
+                            break # as soon as we find a channel on then no need to check the others
+                    LOGGER.debug("----------COLLECTIVE STATE area=%s is_on=%s", area, area_on_state)
+                    area_config = self._area[area]
+                    # then Decide if the collective state has changes since last time?
+                    if area_on_state != area_config.get('was_on',not area_on_state):
+                        # if the previous state is not recorded or the state has changed then update DyNet UI
+                        if area_on_state:
+                            # send a report preset to the dynet newwork
+                            self._dynalite.report_preset(area,self._on_preset,0)
+                        else:
+                            # Send a whole area channel level of 0%
+                            # self._dynalite.set_channel_level(area,0,0,0)
+                            # self._off_preset
+                            self._dynalite.report_preset(area,4,0)
+                        area_config.update({"was_on" : area_on_state}) # update previous value
+                        # TODO verify that these commands will not be intepreted by the home assistant itself (only by DyNet)??
+
+    def report_preset(self, area: int, preset: int,channel=0) -> None:
+        """Report Preset to Area"""
+        self._dynalite.report_preset(area,preset,channel)
+
 
     def send_notification(self, notification: DynaliteNotification) -> None:
         """Update one or more devices."""

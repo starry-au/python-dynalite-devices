@@ -18,6 +18,7 @@ from .const import (
     CONF_AREA,
     CONF_CHANNEL,
     CONF_FADE,
+    CONF_FROM_DYNET,
     CONF_PRESET,
     CONF_TRGT_LEVEL,
     EVENT_CHANNEL,
@@ -45,7 +46,7 @@ class DynetInbound:
         fade = (packet.data[0] + (packet.data[1] * 256)) * 0.02
         return DynetEvent(
             event_type=EVENT_PRESET,
-            data={CONF_AREA: packet.area, CONF_PRESET: preset, CONF_FADE: fade},
+            data={CONF_AREA: packet.area, CONF_PRESET: preset, CONF_FADE: fade, CONF_FROM_DYNET: True},
         )
 
     def preset_1(self, packet: DynetPacket) -> DynetEvent:
@@ -85,7 +86,7 @@ class DynetInbound:
         """Report the current preset of an area."""
         preset = packet.data[0] + 1
         return DynetEvent(
-            event_type=EVENT_PRESET, data={CONF_AREA: packet.area, CONF_PRESET: preset},
+            event_type=EVENT_PRESET, data={CONF_AREA: packet.area, CONF_PRESET: preset, CONF_FROM_DYNET: True},
         )
 
     @staticmethod
@@ -95,7 +96,7 @@ class DynetInbound:
         fade = (packet.data[1] + (packet.data[2] * 256)) * 0.02
         return DynetEvent(
             event_type=EVENT_PRESET,
-            data={CONF_AREA: packet.area, CONF_PRESET: preset, CONF_FADE: fade},
+            data={CONF_AREA: packet.area, CONF_PRESET: preset, CONF_FADE: fade, CONF_FROM_DYNET: True},
         )
 
     @staticmethod
@@ -112,6 +113,7 @@ class DynetInbound:
                 CONF_ACTION: CONF_ACTION_REPORT,
                 CONF_TRGT_LEVEL: target_level,
                 CONF_ACT_LEVEL: actual_level,
+                CONF_FROM_DYNET: True
             },
         )
 
@@ -129,6 +131,7 @@ class DynetInbound:
                 CONF_CHANNEL: channel,
                 CONF_ACTION: CONF_ACTION_CMD,
                 CONF_TRGT_LEVEL: target_level,
+                CONF_FROM_DYNET: True
             },
         )
 
@@ -156,7 +159,7 @@ class DynetInbound:
     @staticmethod
     def stop_fading(packet: DynetPacket) -> DynetEvent:
         """Report that fading stopped for a channel or area."""
-        data = {CONF_AREA: packet.area, CONF_ACTION: CONF_ACTION_STOP}
+        data = {CONF_AREA: packet.area, CONF_ACTION: CONF_ACTION_STOP, CONF_FROM_DYNET: True}
         channel = packet.data[0] + 1
         if channel != 256:  # all channels in area
             data[CONF_CHANNEL] = channel
@@ -171,6 +174,7 @@ class DynetInbound:
             CONF_ACTION: CONF_ACTION_PRESET,
             CONF_PRESET: packet.data[1] + 1,
             CONF_FADE: fade,
+            CONF_FROM_DYNET: True
         }
         channel = packet.data[0] + 1
         if channel != 256:  # all channels in area

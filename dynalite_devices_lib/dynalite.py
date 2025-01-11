@@ -128,6 +128,12 @@ class Dynalite:
         }
         self.broadcast(DynetEvent(event_type=EVENT_PRESET, data=broadcast_data))
 
+    def report_preset(self, area: int, preset: int,channel=0) -> None:
+        """Select a preset in an area."""
+        packet = DynetPacket.report_area_preset_packet(area, preset, channel)
+        self.write(packet)
+        # this packet should not be routed internaly only onto the DyNet bus
+
     def request_channel_level(self, area: int, channel: int) -> None:
         """Request a level for a specific channel."""
         packet = DynetPacket.request_channel_level_packet(area, channel)
